@@ -1,0 +1,43 @@
+name: WordPress CI/CD
+
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  tag:
+    name: Tag
+    runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.tag_version.outputs.new_tag }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Bump version and push tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.0
+        with:
+          github_token: ${{ secrets.GIT_TOKEN }}
+        
+  push_to_registry:
+    name: Push Docker image to Docker Hub
+    runs-on: ubuntu-latest
+    needs: [tag]
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Build and push the Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: ./build
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/wordpress:${{needs.tag.outputs.new_tag}}
